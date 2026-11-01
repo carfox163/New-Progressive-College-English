@@ -322,14 +322,18 @@ body.onhome .navtitle,body.onhome #unitnav,body.onhome .tgroup{display:none}
 .vex{margin:8px 0 0;padding-left:14px;border-left:2px solid var(--line2);font-size:14px;color:var(--ink2);
   line-height:1.75;font-family:var(--serif)}
 .vex li{margin:3px 0}
+/* 课文中的重点词高亮（蓝色粗体，可点击朗读） */
+.vw-hl{color:#1a5fc9;font-weight:700;cursor:pointer;border-radius:4px;transition:background .15s,box-shadow .15s}
+.vw-hl:hover{background:var(--accent-soft);box-shadow:0 0 0 3px var(--accent-soft)}
+.vw-hl.speaking{background:#1a5fc9;color:#fff;box-shadow:0 0 0 3px rgba(26,95,201,.25)}
 .vplay{margin-left:auto}
 .vplay svg{width:9px;height:10px;fill:currentColor}
 .vplay.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .vplay.on:hover{background:var(--accent2);color:#fff}
 .vw{cursor:pointer;transition:.14s}
 .vw:hover{color:var(--accent2)}
-.vitem.speaking,.vitem.solo{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
-.vitem.speaking .vw,.vitem.solo .vw{color:var(--accent2)}
+.vitem.speaking,.vitem.solo,.vitem:has(.vw.speaking){border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+.vitem.speaking .vw,.vitem.solo .vw,.vitem:has(.vw.speaking) .vw{color:var(--accent2);font-weight:700}
 
 /* 练习 */
 .exset{border:1px solid var(--line);background:var(--card);border-radius:var(--radius);padding:20px 22px;
@@ -428,7 +432,6 @@ body.show-exzh .mcbtn .oz{display:block}
   line-height:1.9}
 
 /* 移动端 */
-.sidebar.open{transform:none}
 .scrim{display:none}
 /* 宽屏：内容区铺满，留白适度放大 */
 @media (min-width:1600px){ .wrap{padding:38px 56px 120px} }
@@ -589,10 +592,11 @@ function homeHTML(){
     <div class="tipgrid">
       <div class="tip"><b>三个开关（右上角）</b><p>「英汉对照」逐段显示译文；「中文对照」显示练习题干译文；
         「答案」显示参考答案，判断题与选择题会即时判对错。</p></div>
-      <div class="tip"><b>课文朗读</b><p>每篇课文随机指定 Sonia 或 Ryan 一人整篇在线朗读；
-        标题下可「整篇连播」或「逐段跟读」，段落右侧点 ▶ 可单段复听，段落自动高亮跟随。</p></div>
+      <div class="tip"><b>课文朗读</b><p>每篇课文指定 Sonia 或 Ryan 一人整篇在线朗读，可一键切换（播放中切换即时生效）；
+        标题下可「整篇连播」（先读标题）或「逐段跟读」，段落右侧点 ▶ 可单段复听，段落自动高亮跟随；
+        单元导览可「连读」，课文标题、词汇例句与题干均可单击点读。</p></div>
       <div class="tip"><b>重点词汇朗读</b><p>词汇区标题右侧「连续朗读」用微软 Ryan 语音依次朗读全表单词，
-        单击任意单词也能发音。</p></div>
+        单击任意单词或例句也能发音；课文中的重点词已用蓝色加粗标出，单击即可发音。</p></div>
       <div class="tip"><b>快捷键</b><p><kbd>Z</kbd> 英汉对照 · <kbd>X</kbd> 练习中文 · <kbd>A</kbd> 答案 ·
         <kbd>空格</kbd> 播放/暂停；右上角 A− / A+ 调整字号。</p></div>
     </div>
@@ -600,8 +604,7 @@ function homeHTML(){
   <div class="footer">全新版大学进阶英语 综合教程（第二版）第三、四册 · 精读课件 · Powered by CreativeLearner</div>`;
 }
 function showHome(){
-  if (typeof stopSpeak === 'function') stopSpeak();
-  if (typeof haltSpeech === 'function') haltSpeech();
+  stopSpeak();
   document.body.classList.add('onhome');
   $('#crumb').textContent = '目录首页';
   const hb = $('#homebtn'); if (hb) hb.classList.add('on');
@@ -616,7 +619,7 @@ function render(){
   const u = unitById(state.unit);
   document.body.classList.remove('onhome');
   const hb = $('#homebtn'); if (hb) hb.classList.remove('on');
-  if (typeof stopSpeak === 'function') stopSpeak();
+  stopSpeak();
   document.title = `${u.title_zh} · 精读课件`;
   $('#crumb').innerHTML = `<b>${u.book}</b> · ${u.unit} · ${esc(u.title_zh)}`;
   const w = $('#wrap');
@@ -626,10 +629,10 @@ function render(){
   const hero = el('section','hero');
   hero.innerHTML = `
     <div class="eyebrow">${u.book} · ${u.unit}<span class="line"></span></div>
-    <h2>${esc(u.title_en)}</h2>
+    <h2 class="spkable" title="点击朗读单元标题（再点一次停止）">${esc(u.title_en)}</h2>
     <p class="zh">${esc(u.title_zh)}</p>
     <div class="meta">
-      <span class="chip">课文 <b>3</b> 篇</span>
+      <span class="chip">课文 <b>${u.passages.length}</b> 篇</span>
       <span class="chip">段落 <b>${u.passages.reduce((a,p)=>a+p.paras.length,0)}</b> 段</span>
       <span class="chip">在线朗读 <b>${u.passages.length}</b> 篇</span>
       <span class="chip">重点词汇 <b>${u.vocab.length}</b> 条</span>
@@ -644,41 +647,54 @@ function render(){
 
   /* 导览 */
   const ov = el('section','block'); ov.id = u.id+'-overview';
-  const goals = (u.goals||[]).map(g=>`<li>${esc(g)}</li>`).join('');
-  ov.innerHTML = `<div class="blockhead"><h3>单元导览<span>Opener</span></h3></div>
+  const goals = (u.goals||[]).map(g=>`<li class="spkable" title="点击朗读（再点一次停止）">${esc(g)}</li>`).join('');
+  const hasReadableGoals = SPEAK_OK && (u.goals||[]).some(g => speakableText(g));
+  ov.innerHTML = `<div class="blockhead"><h3>单元导览<span>Opener</span></h3>
+    ${hasReadableGoals ? `<button class="pill explay" title="依次朗读单元导览条目（再点一次停止）">${ICON_SPEAK}<span>连读导览</span></button>` : ''}</div>
     <div class="goals"><ol>${goals}</ol></div>
     <div class="toc">${u.passages.map(p=>`
       <a class="toccard" href="#${u.id}-${p.id}">
         <div class="k">${p.label_en}</div>
-        <div class="t">${esc(p.title_en)}</div>
+        <div class="t spkable" title="点击朗读课文标题">${esc(p.title_en)}</div>
         <div class="d">${p.paras.length} 段 · 在线朗读</div>
       </a>`).join('')}</div>`;
   setsOf('opener').forEach(st => ov.appendChild(exCard(u, st)));
+  const ovBtn = ov.querySelector('.blockhead .explay');
+  if (ovBtn){
+    ovBtn.dataset.label = '连读导览';
+    ovBtn.onclick = () => {
+      const nodes = Array.from(ov.querySelectorAll('.goals li.spkable')).filter(li => speakableText(li.textContent));
+      vseq && vseq.btn === ovBtn ? stopSpeak() : startSeq(nodes, ovBtn);
+    };
+  }
   w.appendChild(ov);
   navs.push(['overview', '单元导览']);
 
   /* 课文 + 词汇 + 练习 */
   u.passages.forEach(p => {
     const s = el('section','block passage'); s.id = u.id+'-'+p.id;
-    const head = el('div','pass-head');
+    const head = el('div','pass-head'); head.dataset.pv = u.id+'|'+p.id;
+    /* 本篇高亮词：单元词表 + 本篇词表（去重、预生成匹配模式） */
+    const hlForms = buildHlForms((u.vocab||[]).concat(p.vocab||[]));
     head.innerHTML = `
       <div class="pass-kicker">${p.label_en} · ${p.label_zh}</div>
-      <h4>${esc(p.title_en)}</h4>
+      <h4 class="spkable" title="点击朗读课文标题（再点一次停止）">${esc(p.title_en)}</h4>
       <p class="zh">${esc(p.title_zh)}</p>
       ${p.author_en?`<div class="by">by ${esc(p.author_en)}${p.author_zh?' · '+esc(p.author_zh):''}</div>`:''}
       <div class="pass-tools">
         <button class="pill primary" data-playfull="${u.id}:${p.id}"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>整篇连播</button>
         <button class="pill" data-playall="${u.id}:${p.id}"><svg viewBox="0 0 24 24"><path d="M4 6h3v12H4zM10 6h3v12h-3zM16 6h3v12h-3z"/></svg>逐段跟读</button>
         <button class="pill" data-playall="${u.id}:${p.id}" data-mode="stop">停止</button>
-        <button class="pill" data-reshuffle="${u.id}:${p.id}">重新分配朗读者</button>
-        <span class="note">共 ${p.paras.length} 段 · 整篇由 <b class="passvoice" data-pv="${u.id}|${p.id}">在线朗读</b> 一人朗读（随机从 <span class="ttsvoices">Sonia / Ryan</span> 中选）</span>
+        <button class="pill" data-reshuffle="${u.id}:${p.id}">切换朗读者</button>
+        <span class="note">共 ${p.paras.length} 段 · 整篇由 <b class="passvoice" data-pv="${u.id}|${p.id}">在线朗读</b> 一人朗读 · 语音可切换（<span class="ttsvoices">Sonia / Ryan</span>）</span>
       </div>`;
     s.appendChild(head);
 
     if (p.lead_en){
       const ld = el('div','para lead');
+      ld.dataset.pv = u.id + '|' + p.id;
       ld.innerHTML = `<div class="n">导</div>
-        <div class="body"><p class="en">${esc(p.lead_en)}</p>
+        <div class="body"><p class="en spkable" title="点击朗读导读（再点一次停止）">${hlVocabText(esc(p.lead_en), hlForms)}</p>
         <p class="zh">${esc(p.lead_zh||'')}</p></div><div></div>`;
       s.appendChild(ld);
     }
@@ -696,7 +712,7 @@ function render(){
       d.innerHTML = `
         <div class="n">${pa.n}</div>
         <div class="body">
-          <p class="en">${esc(pa.en)}</p>
+          <p class="en">${hlVocabText(esc(pa.en), hlForms)}</p>
           ${blkHtml}
           <p class="zh">${esc(pa.zh)||'（本段译文未收录）'}</p>
         </div>
@@ -756,28 +772,10 @@ function render(){
 const SPEAK_OK = typeof speechSynthesis !== 'undefined' && typeof SpeechSynthesisUtterance !== 'undefined';
 const ICON_SPEAK = '<svg viewBox="0 0 10 12" aria-hidden="true"><path d="M0 0l10 6-10 6z"/></svg>';
 const ICON_STOPP = '<svg viewBox="0 0 10 12" aria-hidden="true"><rect x="0" y="1" width="10" height="10" rx="1.5"/></svg>';
-let ryanVoice = null;
-function pickVoice(){
-  const vs = speechSynthesis.getVoices() || [];
-  if (!vs.length) return null;
-  const score = v => {
-    const n = (v.name || '').toLowerCase(), l = (v.lang || '').toLowerCase().replace('_','-');
-    return (/ryan/.test(n) ? 100 : 0)
-      + (l === 'en-us' ? 40 : /^en/.test(l) ? 22 : 0)
-      + (/natural|online/.test(n) ? 12 : 0)
-      + (/microsoft/.test(n) ? 8 : 0)
-      + (v.localService ? 0 : 4);
-  };
-  return vs.slice().sort((a, b) => score(b) - score(a))[0] || null;
-}
+/* 语音池统一由 TTS 管理：initTTS 已按 Sonia / Ryan / 最佳英语语音打分选好 */
 function ensureVoice(){
   if (!SPEAK_OK) return null;
-  if (!ryanVoice) ryanVoice = pickVoice();
-  return ryanVoice;
-}
-if (SPEAK_OK){
-  speechSynthesis.onvoiceschanged = () => { ryanVoice = pickVoice(); };
-  speechSynthesis.getVoices();   /* 预热语音列表 */
+  return TTS.ryan || TTS.en || null;
 }
 function cleanWord(w){
   return String(w || '')
@@ -799,17 +797,60 @@ function speakableText(raw){
        .replace(/\s+/g, ' ').trim();
   return /[A-Za-z]{2,}/.test(t) ? t : '';
 }
+/* ---------- 课文重点词高亮 ---------- */
+/* 词条清洗：去括号内容、占位词 sb./sth.、多余符号 */
+function matchForm(w){
+  return String(w || '').toLowerCase()
+    .replace(/[（(][^）)]*[）)]/g, ' ')
+    .replace(/\b(?:sb\.?|sth\.?|somebody|something)\b/g, ' ')
+    .replace(/[’'‘`]/g, '')
+    .replace(/[^a-z\s-]/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+}
+/* 常见词形变化：首词加 -s/-es/-ing/-ed/-d 及 -y→-ies/-ied；多词短语只变首词 */
+function wordVariants(mf){
+  const words = mf.split(' ');
+  const head = words[0], tail = words.slice(1).join(' ');
+  const set = new Set([head]);
+  if (head.length >= 3 && !/[0-9]/.test(head)){
+    if (head.endsWith('y') && !/[aeiou]y$/.test(head)){
+      set.add(head.replace(/y$/, 'ies')); set.add(head.replace(/y$/, 'ied'));
+    }
+    if (head.endsWith('e')){ set.add(head.slice(0, -1) + 'ing'); set.add(head.slice(0, -1) + 'ed'); }
+    set.add(head + 's'); set.add(head + 'es');
+    set.add(head + 'ing'); set.add(head + 'ed'); set.add(head + 'd');
+  }
+  return Array.from(set).map(h => tail ? h + ' ' + tail : h);
+}
+function escRe(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+/* 预生成高亮匹配模式：短语优先，按长度降序，避免短词先替换造成嵌套 */
+function buildHlForms(list){
+  const forms = [];
+  (list || []).forEach(v => {
+    const mf = matchForm(v.w);
+    if (!mf) return;
+    wordVariants(mf).forEach(f => { if (!forms.includes(f)) forms.push(f); });
+  });
+  return forms.sort((a, b) => b.length - a.length).map(f => escRe(f).replace(/ /g, '\\s+'));
+}
+/* 在已转义的课文 HTML 中把重点词包成蓝色粗体（可点击朗读） */
+function hlVocabText(enHtml, forms){
+  if (!/[A-Za-z]/.test(enHtml) || !forms || !forms.length) return enHtml;
+  const re = new RegExp('(^|[^A-Za-z])(' + forms.join('|') + ')(?![A-Za-z])', 'gi');
+  return enHtml.replace(re, (m, p1, p2) => p1 + '<b class="vw-hl spkable" title="点击朗读单词（再点一次停止）">' + p2 + '</b>');
+}
 function markSpeak(node){
   document.querySelectorAll('.speaking,.solo').forEach(x => x.classList.remove('speaking','solo'));
   if (node) node.classList.add('speaking');
 }
-function speak(text, node, done){
+const TTS_RATE = 0.95;   /* 统一在线朗读语速 */
+function speak(text, node, done, voice){
   if (!SPEAK_OK){ if (typeof done === 'function') done(); return; }
   const fire = () => {
     const ut = new SpeechSynthesisUtterance(text || '');
-    const v = ensureVoice();
+    const v = voice || ensureVoice();
     if (v){ ut.voice = v; ut.lang = v.lang; } else { ut.lang = 'en-US'; }
-    ut.rate = 0.92; ut.pitch = 1;
+    ut.rate = TTS_RATE; ut.pitch = 1;
     ut.onend = ut.onerror = () => { if (typeof done === 'function') done(); };
     try { speechSynthesis.speak(ut); } catch(e){ if (typeof done === 'function') done(); }
   };
@@ -832,7 +873,8 @@ function speakNode(node){
   if (was) return true;
   node.classList.add('speaking');
   node.scrollIntoView({block:'nearest'});
-  speak(txt, node, () => node.classList.remove('speaking'));
+  const voice = node.dataset && node.dataset.voice ? voiceOf(node.dataset.voice) : null;
+  speak(txt, node, () => node.classList.remove('speaking'), voice);
   return true;
 }
 
@@ -868,14 +910,13 @@ function clearPlaying(){ document.querySelectorAll('.para.playing').forEach(x =>
 function haltSpeech(){
   if (SPEAK_OK) speechSynthesis.cancel();
   vseq = null;
-  if (typeof tts !== 'undefined') tts = null;
+  tts = null;
   markSpeak(null);
   clearPlaying();
   seqBtnReset();
   document.querySelectorAll('.pill.on').forEach(b => b.classList.remove('on'));
 }
 function stopSpeak(){ haltSpeech(); }
-function ttsStop(){ haltSpeech(); }
 function vocabNext(){
   if (!vseq) return;
   if (vseq.i >= vseq.nodes.length){ stopSpeak(); return; }
@@ -917,7 +958,7 @@ function vocabBlock(list, id, titleZh, titleEn, withSearch){
     vlist.innerHTML = rows.map(v => `<div class="vitem">
       <div class="vtop"><span class="vw" title="点击朗读">${esc(v.w)}</span>${v.zh?`<span class="vzh">${esc(v.zh)}</span>`:''}</div>
       ${v.def?`<div class="vdef">${esc(v.def)}</div>`:''}
-      ${(v.ex||[]).length?`<ul class="vex">${v.ex.slice(0,3).map(e=>`<li>${esc(e)}</li>`).join('')}</ul>`:''}
+      ${(v.ex||[]).length?`<ul class="vex">${v.ex.slice(0,3).map(e=>`<li class="spkable" title="点击朗读例句（再点一次停止）">${esc(e)}</li>`).join('')}</ul>`:''}
     </div>`).join('') || `<div class="emptyhint">没有匹配的词条。</div>`;
     if (withSearch) vs.querySelector('.vcount').textContent = rows.length + ' / ' + list.length + ' 条';
   };
@@ -1127,7 +1168,7 @@ function voiceScore(v){
 function bestVoice(list){
   return (list || []).slice().sort((a, b) => voiceScore(b) - voiceScore(a))[0] || null;
 }
-const TTS = window.TTS = { sonia: null, ryan: null, en: null, ready: false };
+const TTS = { sonia: null, ryan: null, en: null, ready: false };
 function initTTS(){
   if (!SPEAK_OK) return;
   const vs = speechSynthesis.getVoices() || [];
@@ -1160,7 +1201,7 @@ function paintVoices(){
 }
 if (SPEAK_OK){
   initTTS();
-  speechSynthesis.onvoiceschanged = () => { ryanVoice = pickVoice(); initTTS(); };
+  speechSynthesis.onvoiceschanged = () => { initTTS(); };
   /* Edge 首次 getVoices() 可能为空，稍后再取一次 */
   setTimeout(initTTS, 400);
 }
@@ -1218,7 +1259,7 @@ function speakChunks(chunks, voice, done){
     if (!tts || k >= chunks.length){ if (tts) done(); return; }
     const ut = new SpeechSynthesisUtterance(chunks[k]);
     if (voice){ ut.voice = voice; ut.lang = voice.lang; } else ut.lang = 'en-US';
-    ut.rate = 0.95; ut.pitch = 1;
+    ut.rate = TTS_RATE; ut.pitch = 1;
     ut.onend = ut.onerror = () => { k++; setTimeout(step, 110); };
     try { speechSynthesis.speak(ut); } catch(e){ k++; setTimeout(step, 110); }
   };
@@ -1268,10 +1309,37 @@ function playParaTTS(uid, pid, idx){
 function playAllTTS(uid, pid, gap, btn){
   runTTS(paraJobs(uid, pid), { gap: gap, scroll: true, btn: btn });
 }
-function reshuffle(uid, pid){
+/* 整篇连播：先读课文标题，再连播各段 */
+function playFullTTS(uid, pid, btn){
   const u = unitById(uid), p = u.passages.find(x => x.id === pid);
-  p.paras.forEach((pa, i) => { delete speakerMap[uid+'|'+pid+'|'+i]; });
-  assignSpeakers(uid, pid, p.paras);
+  const jobs = paraJobs(uid, pid);
+  if (p && p.title_en){
+    jobs.unshift({ uid, pid, idx: -1, text: p.title_en, who: speakerMap[uid+'|'+pid+'|0'] || 'auto', node: null });
+  }
+  runTTS(jobs, { gap: 300, scroll: true, btn: btn });
+}
+/* 在 Microsoft Sonia Online / Microsoft Ryan Online 之间切换本篇朗读者 */
+function toggleSpeaker(uid, pid){
+  const u = unitById(uid), p = u.passages.find(x => x.id === pid);
+  const cur = speakerMap[uid+'|'+pid+'|0'];
+  let next;
+  if (TTS.sonia && TTS.ryan){
+    next = cur === 'sonia' ? 'ryan' : 'sonia';   /* 往返切换 */
+  } else if (TTS.sonia){ next = 'sonia'; }
+  else if (TTS.ryan){ next = 'ryan'; }
+  else { next = 'auto'; }
+  p.paras.forEach((pa, i) => { speakerMap[uid+'|'+pid+'|'+i] = next; });
+  /* 正在连播/跟读本篇时：剩余段落立即改用新语音，当前段用新语音重读 */
+  if (tts && tts.jobs.length && tts.jobs.some(j => j.uid === uid && j.pid === pid)){
+    const fresh = paraJobs(uid, pid);
+    const curJob = tts.jobs[tts.i];
+    const curIdx = curJob ? curJob.idx : -1;               /* 当前段真实段落索引 */
+    const keep = (curIdx >= 0) ? tts.jobs.slice(0, tts.i) : [];   /* 已读部分（含标题） */
+    tts.jobs = keep.concat(fresh.slice(Math.max(curIdx, 0)));     /* 当前段起改用新语音 */
+    tts.i = keep.length;
+    speechSynthesis.cancel();
+    setTimeout(ttsNext, 80);   /* 稍等再续播，避免 Chrome 把紧随其后的新句子一起取消 */
+  }
   paintPassageVoice(uid, pid);
 }
 function paintPassageVoice(uid, pid){
@@ -1280,6 +1348,14 @@ function paintPassageVoice(uid, pid){
     b.className = 'passvoice ' + (who === 'auto' ? '' : who);
     b.textContent = speakerLabel(who);
     b.title = '朗读者：' + speakerLabel(who) + '（整篇课文由同一人朗读）';
+  });
+  /* 课文标题 / 导读朗读跟随本篇朗读者 */
+  document.querySelectorAll(`[data-pv="${uid}|${pid}"] .spkable`).forEach(h => { h.dataset.voice = who; });
+  /* 切换按钮提示当前与目标语音 */
+  document.querySelectorAll(`[data-reshuffle="${uid}:${pid}"]`).forEach(b => {
+    if (who === 'auto') b.title = '未检测到 Sonia / Ryan 在线语音';
+    else if (TTS.sonia && TTS.ryan) b.title = '当前 ' + speakerLabel(who) + ' Online，点击切换为 ' + speakerLabel(who === 'sonia' ? 'ryan' : 'sonia') + ' Online';
+    else b.title = '当前 ' + speakerLabel(who) + ' Online（仅检测到该语音）';
   });
 }
 
@@ -1290,24 +1366,24 @@ function bindUnit(u){
   document.querySelectorAll('[data-playall]').forEach(btn=>{
     btn.onclick = ()=>{
       const [uid, pid] = btn.dataset.playall.split(':');
-      if (btn.dataset.mode === 'stop'){ ttsStop(); return; }
+      if (btn.dataset.mode === 'stop'){ stopSpeak(); return; }
       playAllTTS(uid, pid, 1100, btn);   /* 逐段跟读：段间留 1.1 秒便于跟读 */
     };
   });
   document.querySelectorAll('[data-playfull]').forEach(btn=>{
     btn.onclick = ()=>{
       const [uid, pid] = btn.dataset.playfull.split(':');
-      playAllTTS(uid, pid, 300, btn);    /* 整篇连播：段间 0.3 秒 */
+      playFullTTS(uid, pid, btn);        /* 整篇连播：先读标题，段间 0.3 秒 */
     };
   });
   document.querySelectorAll('[data-reshuffle]').forEach(btn=>{
-    btn.onclick = ()=>{ const [uid, pid] = btn.dataset.reshuffle.split(':'); reshuffle(uid, pid); };
+    btn.onclick = ()=>{ const [uid, pid] = btn.dataset.reshuffle.split(':'); toggleSpeaker(uid, pid); };
   });
   document.querySelectorAll('.play').forEach(btn=>{
     btn.onclick = ()=>{
       const [uid, pid, idx] = btn.dataset.p.split('|');
       const node = btn.closest('.para');
-      if (node.classList.contains('playing')){ ttsStop(); return; }
+      if (node.classList.contains('playing')){ stopSpeak(); return; }
       playParaTTS(uid, pid, +idx);
     };
   });
@@ -1317,7 +1393,12 @@ function bindUnit(u){
     });
   });
   document.querySelectorAll('.toccard').forEach(c=>{
-    c.onclick = (e)=>{ e.preventDefault(); const t = document.querySelector(c.getAttribute('href')); if(t) t.scrollIntoView({behavior:'smooth'}); };
+    c.onclick = (e)=>{
+      e.preventDefault();
+      const sp = e.target.closest('.spkable');
+      if (sp){ speakNode(sp); e.stopPropagation(); return; }  /* 点标题即朗读，不跳转 */
+      const t = document.querySelector(c.getAttribute('href')); if(t) t.scrollIntoView({behavior:'smooth'});
+    };
   });
 }
 
@@ -1336,11 +1417,20 @@ document.addEventListener('keydown', e=>{
   if (e.key === 'z' || e.key === 'Z'){ state.zh = !state.zh; applyState(); }
   else if (e.key === 'a' || e.key === 'A'){ state.ans = !state.ans; applyState(); }
   else if (e.key === 'x' || e.key === 'X'){ state.exzh = !state.exzh; applyState(); }
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
+    /* ←/→ 上/下一段：以当前高亮段落为基准，无高亮则从头/从尾开始 */
+    const cur = document.querySelector('.para.playing');
+    const all = Array.from(document.querySelectorAll('.para[data-uid][data-pid]'));
+    if (!all.length) return;
+    const i = cur ? all.indexOf(cur) : (e.key === 'ArrowRight' ? -1 : all.length);
+    const next = all[i + (e.key === 'ArrowRight' ? 1 : -1)];
+    if (next) playParaTTS(next.dataset.uid, next.dataset.pid, +next.dataset.index);
+  }
   else if (e.key === ' '){
     e.preventDefault();
-    if (tts) { ttsStop(); return; }
+    if (tts) { stopSpeak(); return; }
     const u = unitById(state.unit), p = (u.passages || [])[0];
-    if (p) playAllTTS(u.id, p.id, 300, null);
+    if (p) playFullTTS(u.id, p.id, null);
   }
 });
 
@@ -1352,8 +1442,9 @@ window.addEventListener('scroll', ()=>{
 
 /* 题干点读：点击英文题干 / 参考答案英文 / 完形句子即可朗读，再点一次停止 */
 if (SPEAK_OK){
+  /* 全局点读：题干、参考答案、完形句子、课文/单元标题、导览条目、词汇例句，再点一次停止 */
   document.addEventListener('click', e => {
-    const n = e.target.closest('.q.spkable, .ansbox .en.spkable, .sspk');
+    const n = e.target.closest('.spkable, .sspk');
     if (!n) return;
     const sel = window.getSelection ? String(window.getSelection() || '') : '';
     if (sel) return;                       /* 选中文字时不朗读，方便复制 */
