@@ -31,7 +31,7 @@ body::before{
 a{color:inherit;text-decoration:none}
 
 /* ---------- 布局 ---------- */
-.app{display:grid;grid-template-columns:296px minmax(0,1fr);min-height:100vh}
+.app{display:grid;grid-template-columns:296px minmax(0,1fr);min-height:100vh;transition:grid-template-columns .25s}
 .sidebar{
   position:sticky;top:0;height:100vh;overflow-y:auto;padding:26px 20px 40px;
   border-right:1px solid var(--line);background:rgba(252,251,247,.86);backdrop-filter:blur(8px);
@@ -111,6 +111,25 @@ kbd{font-family:var(--sans);font-size:11.5px;background:#f0ece2;border:1px solid
 }
 .iconbtn:hover{border-color:var(--accent);color:var(--accent2)}
 .menubtn{display:none}
+/* 侧栏收起 / 展开按钮（桌面端） */
+.sideclose{margin-left:auto;width:29px;height:29px;border-radius:9px;border:1px solid var(--line2);background:#fff;
+  cursor:pointer;color:var(--ink2);display:grid;place-items:center;transition:.18s;flex:0 0 auto}
+.sideclose:hover{border-color:var(--accent);color:var(--accent2)}
+.sideclose svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.sideopen{display:none}
+@media (min-width:981px){
+  body.side-closed .app{grid-template-columns:1fr}
+  body.side-closed .sidebar{position:fixed;left:0;top:0;width:296px;height:100vh;z-index:49;
+    transform:translateX(-100%);box-shadow:0 0 40px rgba(0,0,0,.12);transition:transform .25s}
+  body.side-closed .sideopen{display:grid;position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:48;
+    width:27px;height:54px;border-radius:0 13px 13px 0;border:1px solid var(--line2);border-left:none;
+    background:var(--card);cursor:pointer;color:var(--ink2);place-items:center;transition:.18s;
+    box-shadow:2px 0 12px rgba(0,0,0,.07)}
+  body.side-closed .sideopen:hover{color:var(--accent2);border-color:var(--accent)}
+  body.side-closed .sideopen svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.8;
+    stroke-linecap:round;stroke-linejoin:round}
+}
+@media (max-width:980px){ .sideclose{display:none} }
 .progress{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,var(--accent),#6aa78f);z-index:60;width:0}
 
 /* ---------- 内容 ---------- */
@@ -470,6 +489,9 @@ body.show-exzh .mcbtn .oz{display:block}
         <h1>全新版大学进阶英语<br>综合教程 · 精读课件</h1>
         <p>Book 3 &amp; Book 4</p>
       </div>
+      <button class="sideclose" id="sideclose" title="收起左侧导航">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 3 5.5 8l5 5"/></svg>
+      </button>
     </div>
     <button class="homebtn" id="homebtn">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6l6 5.2v7.6H9.4V9.8H6.6v4.6H2V6.8z"/></svg>
@@ -484,6 +506,9 @@ body.show-exzh .mcbtn .oz{display:block}
       <kbd>空格</kbd> 播放/暂停 · <kbd>←</kbd><kbd>→</kbd> 上/下一段
     </div>
   </aside>
+  <button class="sideopen" id="sideopen" title="展开左侧导航">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3l5 5-5 5"/></svg>
+  </button>
   <div class="scrim" id="scrim"></div>
   <main class="main">
     <div class="topbar">
@@ -530,7 +555,7 @@ const state = {
   zh: localStorage.getItem('zh') === '1',
   exzh: localStorage.getItem('exzh') === '1',
   ans: localStorage.getItem('ans') === '1',
-  fs: parseFloat(localStorage.getItem('fs') || '1'),
+  fs: (parseFloat(localStorage.getItem('fs') || '1') || 1),   /* 脏数据兜底为 1 */
   tf: JSON.parse(localStorage.getItem('tf') || '{}')
 };
 
@@ -911,6 +936,14 @@ function splitSentences(p){
 }
 
 let vseq = null;   /* 连续朗读队列 */
+let vocabRepeat = 2;   /* 词汇连读每词遍数：1 或 2（默认 2 = 跟读模式） */
+function paintVocabRepeat(){
+  document.querySelectorAll('.vrepeat').forEach(b => {
+    const two = vocabRepeat === 2;
+    b.textContent = two ? '跟读×2' : '朗读×1';
+    b.title = two ? '每词朗读两遍（跟读模式），点击切换为读一遍' : '每词朗读一遍，点击切换为跟读两遍';
+  });
+}
 function seqBtnReset(){
   document.querySelectorAll('.vplay,.explay').forEach(b => {
     b.classList.remove('on');
@@ -937,16 +970,23 @@ function vocabNext(){
   markSpeak(node);
   node.scrollIntoView({block:'nearest'});
   const txt = speakableText(node.textContent) || String(node.textContent || '');
-  speak(txt, node, () => {
-    if (!vseq) return;
-    vseq.i += 1;
-    setTimeout(vocabNext, 240);
-  });
+  const times = vseq.repeat || 1;
+  let played = 0;
+  const playOnce = () => {
+    if (!vseq) return;   /* 间隔期间被停止则不再发声 */
+    speak(txt, node, () => {
+      if (!vseq) return;
+      played += 1;
+      if (played < times) setTimeout(playOnce, 200);   /* 两遍之间 0.2 秒间隔 */
+      else { vseq.i += 1; setTimeout(vocabNext, 240); }
+    });
+  };
+  playOnce();
 }
-function startSeq(nodes, btn){
+function startSeq(nodes, btn, repeat){
   stopSpeak();
   if (!nodes || !nodes.length) return;
-  vseq = { nodes, i: 0, btn };
+  vseq = { nodes, i: 0, btn, repeat: repeat || 1 };
   if (btn){
     btn.classList.add('on');
     btn.innerHTML = ICON_STOPP + '<span>停止朗读</span>';
@@ -955,12 +995,12 @@ function startSeq(nodes, btn){
   }
   vocabNext();
 }
-function startVocab(vs, btn){ startSeq(Array.from(vs.querySelectorAll('.vitem .vw')), btn); }
+function startVocab(vs, btn){ startSeq(Array.from(vs.querySelectorAll('.vitem .vw')), btn, vocabRepeat); }
 
 function vocabBlock(list, id, titleZh, titleEn, withSearch){
   const vs = el('section','block'); vs.id = id;
   vs.innerHTML = `<div class="blockhead"><h3>${esc(titleZh)}<span>${esc(titleEn)}</span></h3>
-    ${SPEAK_OK ? `<button class="pill vplay" title="用微软 Ryan 语音依次朗读本表单词（只读词形，不读释义）">${ICON_SPEAK}<span>连续朗读</span></button>` : ''}</div>
+    ${SPEAK_OK ? `<button class="pill vrepeat" title="每词朗读两遍（跟读模式），点击切换为读一遍">跟读×2</button><button class="pill vplay" title="用微软 Ryan 语音依次朗读本表单词（只读词形，不读释义）">${ICON_SPEAK}<span>连续朗读</span></button>` : ''}</div>
     ${withSearch?`<div class="vsearch"><input class="vq" placeholder="搜索单词、短语或中文释义…" autocomplete="off">
       <span class="note vcount"></span></div>`:''}
     <div class="vlist"></div>`;
@@ -982,6 +1022,8 @@ function vocabBlock(list, id, titleZh, titleEn, withSearch){
     btn.dataset.label = '连续朗读';
     btn.onclick = () => { vseq && vseq.btn === btn ? stopSpeak() : startVocab(vs, btn); };
   }
+  const rb = vs.querySelector('.vrepeat');
+  if (rb) rb.onclick = () => { vocabRepeat = vocabRepeat === 2 ? 1 : 2; paintVocabRepeat(); };
   if (SPEAK_OK) vlist.addEventListener('click', e => {
     const w = e.target.closest('.vw');
     if (!w) return;
@@ -1424,9 +1466,12 @@ function bindUnit(u){
 $('#sw-zh').onclick = ()=>{ state.zh = !state.zh; applyState(); };
 $('#sw-exzh').onclick = ()=>{ state.exzh = !state.exzh; applyState(); };
 $('#sw-ans').onclick = ()=>{ state.ans = !state.ans; applyState(); };
-$('#fsup').onclick = ()=>{ state.fs = Math.min(1.3, +(state.fs+0.05).toFixed(2)); applyState(); };
-$('#fsdown').onclick = ()=>{ state.fs = Math.max(0.85, +(state.fs-0.05).toFixed(2)); applyState(); };
+$('#fsup').onclick = ()=>{ state.fs = Math.min(1.3, +((+state.fs) + 0.05).toFixed(2)); applyState(); };
+$('#fsdown').onclick = ()=>{ state.fs = Math.max(0.85, +((+state.fs) - 0.05).toFixed(2)); applyState(); };
 $('#menubtn').onclick = ()=>{ $('#sidebar').classList.add('open'); $('#scrim').classList.add('show'); };
+/* 桌面端侧栏收起 / 展开 */
+$('#sideclose').onclick = ()=>{ document.body.classList.add('side-closed'); };
+$('#sideopen').onclick = ()=>{ document.body.classList.remove('side-closed'); };
 $('#scrim').onclick = closeSidebar;
 function closeSidebar(){ $('#sidebar').classList.remove('open'); $('#scrim').classList.remove('show'); }
 
@@ -1482,6 +1527,7 @@ if (initHash && DATA.some(u=>u.id===initHash)) state.unit = initHash;
 renderDocList();
 render();
 applyState();
+paintVocabRepeat();   /* 同步词汇连读遍数按钮文案 */
 if (!initHash || initHash === 'home') showHome();
 $('#homebtn').onclick = ()=>{
   if (location.hash.slice(1) === 'home') showHome(); else location.hash = 'home';
